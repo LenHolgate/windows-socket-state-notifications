@@ -29,6 +29,7 @@
 
 #include "../shared/shared.h"
 #include "../shared/tcp_socket.h"
+#include "../shared/wsssn.h"
 
 #include <SDKDDKVer.h>
 
@@ -64,6 +65,7 @@ int main()
    //registration.triggerFlags = SOCK_NOTIFY_TRIGGER_LEVEL;
    //registration.triggerFlags = SOCK_NOTIFY_TRIGGER_PERSISTENT | SOCK_NOTIFY_TRIGGER_LEVEL;
    //registration.triggerFlags = SOCK_NOTIFY_TRIGGER_ONESHOT |SOCK_NOTIFY_TRIGGER_LEVEL;
+   //registration.triggerFlags = SOCK_NOTIFY_TRIGGER_ONESHOT | SOCK_NOTIFY_TRIGGER_EDGE;
    registration.triggerFlags = SOCK_NOTIFY_TRIGGER_PERSISTENT | SOCK_NOTIFY_TRIGGER_EDGE;
    registration.socket = s;
 
@@ -78,31 +80,12 @@ int main()
 
    if (errorCode == 0)
    {
-      OVERLAPPED_ENTRY notification{};
-
-      DWORD notificationEventCount = 0;
-
       cout << "success" << endl;
+
+      cout << "events after notification registration: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
       const auto listeningSocket = CreateListeningSocket();
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
-
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
-      }
       sockaddr_in addr {};
 
       /* Attempt to connect to an address that we won't be able to connect to. */
@@ -117,23 +100,7 @@ int main()
          ErrorExit("connect");
       }
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
-
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
-      }
+      cout << "events after connect: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
       // Set it as non-blocking
 
@@ -144,85 +111,68 @@ int main()
          ErrorExit("ioctlsocket");
       }
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
-
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
-      }
+      cout << "events after setting non-blocking: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
       const SOCKET accepted = listeningSocket.Accept();
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
-
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
-      }
+      cout << "events after listen accepts: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
       static const char data[] = { 1, 2, 3, 4, 5 };
 
       send(accepted, data, sizeof(data), 0);
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
+      cout << "events after accepted sends: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
-      }
+      send(accepted, data, sizeof(data), 0);
+
+      cout << "events after accepted sends: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+      char buf[100];
+
+      int bytesIn = recv(s, buf, sizeof(buf), 0);
+
+      cout << "bytes in: " << bytesIn << " events: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+      send(accepted, data, sizeof(data), 0);
+
+      cout << "events after accepted sends: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
       Close(accepted);
 
-      if (::GetQueuedCompletionStatusEx(hIOCP, &notification, 1, &notificationEventCount, 1000, FALSE))
-      {
-         cout << "got event " << SocketNotificationRetrieveEvents(&notification) << endl;
-      }
-      else
-      {
-         const DWORD lastError = GetLastError();
+      cout << "events after accepted closes: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
-         if (WAIT_TIMEOUT == lastError)
-         {
-            cout << "no event" << endl;
-         }
-         else
-         {
-            ErrorExit("GetQueuedCompletionStatusEx");
-         }
+      bytesIn = recv(s, buf, sizeof(buf), 0);
+
+      cout << "bytes in: " << bytesIn << " events: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+      bytesIn = recv(s, buf, sizeof(buf), 0);
+
+      cout << "bytes in: " << bytesIn << " events: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+      registration.operation = SOCK_NOTIFY_OP_REMOVE;
+
+      errorCode = ProcessSocketNotifications(
+         hIOCP,
+         1,                                           // number of registrations in following array
+         &registration,                               // array of registrations
+         0,                                           // timeout
+         0,                                           // num completions
+         NULL,                                        // array of completions
+         NULL);                                       // number of completions returned
+
+      if (errorCode != 0)
+      {
+         ErrorExit("ProcessSocketNotifications");
+
       }
+
+      cout << "events after unregister: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+      Close(s);
+
+      cout << "events after connected closes: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
+
+
    }
    else if (errorCode == WAIT_TIMEOUT)
    {

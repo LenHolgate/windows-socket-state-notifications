@@ -135,7 +135,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\shared.h" />
-    <ClInclude Include="..\third_party\wepoll_magic.h" />
+    <ClInclude Include="..\shared\socket.h" />
+    <ClInclude Include="..\shared\tcp_socket.h" />
+    <ClInclude Include="..\shared\wsssn.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

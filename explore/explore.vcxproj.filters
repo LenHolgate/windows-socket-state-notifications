@@ -23,7 +23,13 @@
     <ClInclude Include="..\shared\shared.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\third_party\wepoll_magic.h">
+    <ClInclude Include="..\shared\socket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\tcp_socket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\wsssn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
