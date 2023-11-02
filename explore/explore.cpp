@@ -137,6 +137,7 @@ int main()
 
       cout << "events after accepted sends: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
 
+      // this is a clean close, we need to see what happens with a RST - probably get an ERR event...
       Close(accepted);
 
       cout << "events after accepted closes: " << EventsAsString(GetEvents(hIOCP, 0)) << endl;
